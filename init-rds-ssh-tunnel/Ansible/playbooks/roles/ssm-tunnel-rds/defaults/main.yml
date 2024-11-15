@@ -1,0 +1,6 @@
+---
+key_name: "ssmkey"
+python_packages:
+  - pymysql
+  - stormssh
+timeout: 300 # Timeout in seconds (5 minutes)

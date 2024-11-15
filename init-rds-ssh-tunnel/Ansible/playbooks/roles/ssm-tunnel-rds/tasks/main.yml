@@ -1,0 +1,42 @@
+- name: Install Python libraries
+  ansible.builtin.pip:
+     name: "{{ item }}"
+     state: present
+  loop: "{{ python_packages }}"
+
+- name: Ensure the ssh keys target directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('ansible.builtin.env', 'WORKSPACE') }}/ssh_keys"
+    state: directory
+    mode: "0755"
+
+- name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+  community.crypto.openssh_keypair:
+    path: "{{ lookup('ansible.builtin.env', 'WORKSPACE') }}/ssh_keys/{{ key_name }}"
+
+- name: Configure SSH settings in .ssh/config
+  community.general.ssh_config:
+    ssh_config_file: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/config"
+    host: "i-* mi-*"
+    proxycommand: "sh -c \"aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p --no-verify-ssl --region us-east-1\""
+
+- name: Set permissions for SSH config file
+  ansible.builtin.file:
+    path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/config"
+    mode: "0600"
+
+- name: Wait for running instances within the timeout period
+  amazon.aws.ec2_instance_info:
+    region: "{{ region }}"
+    filters:
+      "tag:Environment": "{{ environment_name }}"
+      instance-state-name: ["running"]
+  register: ec2_info
+  until: ec2_info.instances | length > 0
+  retries: "{{ timeout // 10 }}"
+  delay: 10
+
+- name: Create RDS SSH tunnel
+  ansible.builtin.shell: |
+    aws ec2-instance-connect send-ssh-public-key --instance-id {{ ec2_info.instances[0].instance_id }} --region {{ region }} --ssh-public-key file:///{{ lookup('ansible.builtin.env', 'WORKSPACE') }}/ssh_keys/ssmkey.pub --instance-os-user ec2-user --availability-zone {{ ec2_info.instances[0].placement.availability_zone }}
+    ssh -f -NL 0.0.0.0:3306:{{ rds_endpoint }}:3306 -o "StrictHostKeyChecking=no" -i {{ lookup('ansible.builtin.env', 'WORKSPACE') }}/ssh_keys/ssmkey ec2-user@{{ ec2_info.instances[0].instance_id }}

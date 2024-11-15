@@ -1,0 +1,19 @@
+
+- name: Create new databases in RDS
+  community.mysql.mysql_db:
+    name: "{{ item.value }}"
+    state: "present"
+    login_user: "{{ rds_admin_username }}"               
+    login_password: "{{ rds_admin_password }}"
+  loop: "{{ databases | dict2items }}"
+
+- name: Assign MySQL users privileges
+  community.mysql.mysql_user:
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    host: "%"
+    priv: "{{ item.privileges }}"
+    state: present
+    login_user: "{{ rds_admin_username }}"
+    login_password: "{{ rds_admin_password }}"
+  loop: "{{ user_configurations }}"

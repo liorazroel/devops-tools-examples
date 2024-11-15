@@ -1,0 +1,26 @@
+rds_endpoint: ""
+rds_admin_username: "root"
+rds_admin_password: "123456789"
+
+databases:
+  db1: "db1"
+  db2: "db2"
+
+privileges:
+  read: 'SELECT'
+  write: 'SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,DROP,REFERENCES'
+  all: 'ALL'
+
+
+user_configurations:
+  - username: "{{ db1_rw_username }}"
+    password: "{{ db1_rw_password }}"
+    privileges: "{{ databases.db1 }}.*:{{ privileges.all }}"
+
+  - username: "{{ db1_ro_username }}"
+    password: "{{ db1_ro_password }}"
+    privileges: "{{ databases.db1 }}.*:{{ privileges.read }}"
+
+  - username: "{{ db2_rw_useranme }}"
+    password: "{{ db2_rw_password }}"
+    privileges: "{{ databases.db2 }}.*:{{ privileges.all }}"
